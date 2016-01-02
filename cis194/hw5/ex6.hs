@@ -19,7 +19,21 @@ instance Expr VarExprT where
 instance HasVars VarExprT where
   var = Var
 
-instance HasVars (M.Map String Integer -> Maybe Integer)
-  var =
+instance HasVars (M.Map String Integer -> Maybe Integer) where
+  var = M.lookup
 
-instance Expr (M.Map String Integer -> Maybe Integer)
+instance Expr (M.Map String Integer -> Maybe Integer) where
+  lit       = const . Just
+  add f1 f2 = \m -> do
+    a <- f1 m
+    b <- f2 m
+    return (a + b)
+  mul f1 f2 = \m -> do
+    a <- f1 m
+    b <- f2 m
+    return (a * b)
+
+withVars :: [(String, Integer)]
+  -> (M.Map String Integer -> Maybe Integer)
+  -> Maybe Integer
+withVars vs exp = exp $ M.fromList vs
