@@ -7,7 +7,7 @@ streamToList :: Stream a -> [a]
 streamToList (Cons a b) = a : streamToList b
 
 instance Show a => Show (Stream a) where
-  show = show . take 20 . streamToList
+  show = show . take 100 . streamToList
 
 -- ex4
 streamRequest :: a -> Stream a
