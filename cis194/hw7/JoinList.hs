@@ -1,11 +1,17 @@
+{-# LANGUAGE FlexibleInstances, TypeSynonymInstances #-}
 module JoinList where
 
+import Data.List (foldr1)
+import Buffer
+import Scrabble
 import Sized
 
 data JoinList m a = Empty
                    | Single m a
                    | Append m (JoinList m a) (JoinList m a)
    deriving (Eq, Show)
+
+type JoinListBuffer = JoinList (Score, Size) String
 
 tag :: Monoid m => JoinList m a -> m
 tag Empty          = mempty
@@ -55,9 +61,47 @@ dropJ n (Append m lhs rhs)
   where sz    = getSize . size $ m
         lsize = getSize . size . tag $ lhs
 
+takeJ :: (Sized b, Monoid b) =>
+         Int -> JoinList b a -> JoinList b a
+takeJ _ Empty           = Empty
+takeJ n _ | n <= 0      = Empty
+takeJ _ jl@(Single _ _) = jl
+takeJ n jl@(Append m lhs rhs)
+  | n >= sz    = jl
+  | n <= lsize = takeJ n lhs
+  | otherwise = lhs +++ (takeJ (n-lsize) rhs)
+  where sz    = getSize . size $ m
+        lsize = getSize . size . tag $ lhs
+
+instance Buffer JoinListBuffer where
+  -- | toString
+  toString = unlines . jlToList
+
+  -- | fromString
+  fromString = foldr1 (+++) . map f . lines
+    where f = \l -> (Single (scoreString l, Size 1) l)
+
+  -- | line
+  line = indexJ
+
+  -- | replaceLine
+  replaceLine ix s b
+    | ix < 0 || ix >= (numLines b) = b
+    | otherwise = lhs +++ mid +++ rhs
+    where mid = fromString s
+          lhs = takeJ ix b
+          rhs = dropJ (ix + 1) b
+
+  -- | numLines
+  numLines = getSize . size . tag
+
+  -- | value
+  value b = let Score s = fst . tag $ b
+            in s
+
 -- ex2 test code
-testIndexJ :: Int -> Bool
-testIndexJ ix = let
+testJ :: Int -> Bool
+testJ ix = let
   makeSingleton :: Int -> JoinList Size Int
   makeSingleton = Single (Size 1)
 
@@ -68,4 +112,9 @@ testIndexJ ix = let
   jl       = makeList testcase
   in (jlToList jl == testcase) &&
      (indexJ ix jl) == (jlToList jl !!? ix) &&
-     (jlToList (dropJ ix jl) == drop ix (jlToList jl))
+     (jlToList (dropJ ix jl) == drop ix (jlToList jl)) &&
+     (jlToList (takeJ ix jl) == take ix (jlToList jl))
+
+-- ex3 test code
+scoreLine :: String -> JoinList Score String
+scoreLine s = Single (scoreString s) s
