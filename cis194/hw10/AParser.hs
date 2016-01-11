@@ -92,7 +92,5 @@ instance Alternative Parser where
   p1 <|> p2 = Parser $ \x -> (runParser p1 x) <|> (runParser p2 x)
 
 intOrUppercase :: Parser ()
-intOrUppercase = ignore posInt <|> ignore upperCase <|> empty
-  where ignore :: Parser a -> Parser ()
-        ignore    = fmap (\x -> ())
-        upperCase = satisfy isUpper
+intOrUppercase = ignore posInt <|> ignore (satisfy isUpper)
+  where ignore = fmap (const ())
