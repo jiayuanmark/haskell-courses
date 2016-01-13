@@ -42,7 +42,7 @@ battle (Battlefield a d) = do
   defend <- replicateM nd die
   let (da, dd) = play attack defend
   return $ Battlefield (a-da) (d-dd)
-  where na = min 3 a - 1
+  where na = min 3 (a-1)
         nd = min 2 d
 
 invade :: Battlefield -> Rand StdGen Battlefield
@@ -65,12 +65,21 @@ successProb initial = do
 exactSuccessProb :: Battlefield -> Double
 exactSuccessProb (Battlefield a d) = prob ! (a,d)
   where prob   :: Array (Int, Int) Double
-        prob   = array ((0,0),(a,d)) [ ((i,j),go i j) | i <- [0..a],
-                                                        j <- [0..d] ]
+        prob   = array ((0,0),(a,d)) [ ((i,j), go i j) | i <- [0..a],
+                                                         j <- [0..d] ]
         go a d
           | a < 2     = 0
           | d == 0    = 1
-          | d < 2     = (prob ! (a, d-1) + prob ! (a-1, d)) / 2.0
+          -- only 1 defender die
+          | d < 2     = let a'   = min 3 (a-1)
+                            dwin = (sum . map (\x -> (x / 6) ^ a') $ [1..6]) / 6
+                        in (1 - dwin) * prob ! (a, d-1) + dwin * prob ! (a-1, d)
+          -- only 1 attacker die
+          | a == 2    = let awin =
+                        in
+          -- 3 attacker die and 2 defender die
+          | a >= 4    =
+          -- 2 attacker die and 2 defender die
           | otherwise = sum [ prob ! (a-1,d-1),
                               prob ! (a-2,d),
                               prob ! (a,d-2) ] / 3.0
