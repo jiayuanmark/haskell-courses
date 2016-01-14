@@ -5,7 +5,7 @@ module Risk where
 import Control.Monad
 import Control.Monad.Random
 import Data.Array
-import Data.List (sortBy, splitAt)
+import Data.List (sortBy)
 
 ------------------------------------------------------------
 -- Die values
