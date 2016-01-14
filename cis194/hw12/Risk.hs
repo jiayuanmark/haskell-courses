@@ -61,29 +61,31 @@ successProb b = do
 data Result = Attacker | Defender | Tie
   deriving (Show, Eq)
 
-prb :: [Double]
-prb = let a  = length $ filter (== Attacker) sim
-          d  = length $ filter (== Defender) sim
-          t  = length $ filter (== Tie) sim
-      in map (\x -> (fromIntegral x) / (6.0^5)) [a, d, t]
-  where go :: [Int] -> Result
-        go x
+prb :: Int -> Int -> [Double]
+prb a' d' = let sim = enumerate a' d'
+                a   = filter (== Attacker) sim
+                d   = filter (== Defender) sim
+                t   = filter (== Tie) sim
+                tot = 6.0 ^ (fromIntegral (a' + d'))
+            in map (\x -> (fromIntegral . length $ x) / tot) [a,d,t]
+  where go :: [Int] -> [Int] -> Result
+        go as bs
           | a1 >  d1 && a2 >  d2 = Attacker
           | a1 <= d1 && a2 <= d2 = Defender
           | otherwise            = Tie
-          where (as, ds)  = splitAt 3 x
-                (a1:a2:_) = sortBy (flip compare) as
-                (d1:d2:_) = sortBy (flip compare) ds
-        sim = do a1 <- [1..6]
-                 a2 <- [1..6]
-                 a3 <- [1..6]
-                 d1 <- [1..6]
-                 d2 <- [1..6]
-                 return $ go [a1, a2, a3, d1, d2]
+          where f         = sortBy (flip compare)
+                (a1:a2:_) = f as
+                (d1:d2:_) = f bs
+        enumerate na nd = do
+          as <- replicateM na [1..6]
+          bs <- replicateM nd [1..6]
+          return $ go as bs
 
 exactSuccessProb :: Battlefield -> Double
 exactSuccessProb (Battlefield a d) = prob ! (a,d)
-  where prob   :: Array (Int, Int) Double
+  where rate32 = (prb 3 2) :: [Double]
+        rate22 = (prb 2 2) :: [Double]
+        prob   :: Array (Int, Int) Double
         prob   = array ((0,0),(a,d)) [ ((i,j), go i j) | i <- [0..a],
                                                          j <- [0..d] ]
         go a d
@@ -97,7 +99,7 @@ exactSuccessProb (Battlefield a d) = prob ! (a,d)
           | a == 2    = let awin = (sum . map (\x -> (x / 6) ^ 2) $ [1..5]) / 6
                         in awin * prob ! (a, d-1) + (1 - awin) * prob ! (a-1, d)
           -- 3 attacker die and 2 defender die
-          | a >= 4    = sum $ zipWith (*) prb sub
+          | a >= 4    = sum $ zipWith (*) rate32 sub
           -- 2 attacker die and 2 defender die
-          | otherwise = (sum sub) / 3.0
+          | otherwise = sum $ zipWith (*) rate22 sub
           where sub = [ prob ! (a,d-2), prob ! (a-2,d), prob ! (a-1,d-1) ]
