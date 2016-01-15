@@ -1,0 +1,3 @@
+[submodule "nicta/course"]
+	path = nicta/course
+	url = https://github.com/jiayuanmark/course.git
