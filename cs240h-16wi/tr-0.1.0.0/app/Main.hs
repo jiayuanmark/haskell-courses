@@ -11,7 +11,6 @@ main :: IO ()
 main = do
   args <- words <$> getLine
   case args of
-    a1 : a2 : a3 : _ -> putStrLn $ tr a1 (Just a2) a3
-    a1 : a2 : _  | a1 == "-d" -> putStrLn $ tr a1 Nothing a2
-                 | otherwise  -> putStrLn $ "Unrecognizable option " ++ a1
+    a1 : a2 : a3 : _ | a1 == "-d" -> putStrLn $ tr a2 Nothing a3
+                     | otherwise  -> putStrLn $ tr a1 (Just a2) a3
     _ -> putStrLn "Insufficient arguments!"
