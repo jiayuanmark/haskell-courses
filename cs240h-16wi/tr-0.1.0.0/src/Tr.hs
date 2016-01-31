@@ -9,6 +9,9 @@ module Tr
     , tr
     ) where
 
+import qualified Data.Map as M
+import qualified Data.Set as S
+
 -- | Just to give `tr` a more descriptive type
 type CharSet = String
 
@@ -24,12 +27,20 @@ type CharSet = String
 --
 -- The third argument is the string to be translated (i.e., STDIN) and the
 -- return type is the output / translated-string (i.e., STDOUT).
--- 
+--
 -- translate mode: tr "eo" (Just "oe") "hello" -> "holle"
 -- delete mode: tr "e" Nothing "hello" -> "hllo"
 --
 -- It's up to you how to handle the first argument being the empty string, or
 -- the second argument being `Just ""`, we will not be testing this edge case.
 tr :: CharSet -> Maybe CharSet -> String -> String
-tr _inset _outset xs = xs
-
+tr src (Just dst) s = foldr f [] s
+  where f c cs = case M.lookup c dict of
+                  Nothing -> c : cs
+                  Just x  -> x : cs
+        dict   = M.fromList (zip src padded)
+        padded = case (reverse dst) of
+                  []    -> []
+                  (c:_) -> dst ++ repeat c
+tr src Nothing s = foldr (\c cs -> if c `S.member` st then cs else c:cs) [] s
+  where st = S.fromList src
