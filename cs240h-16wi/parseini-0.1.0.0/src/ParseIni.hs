@@ -1,3 +1,5 @@
+{-# LANGUAGE OverloadedStrings #-}
+
 module ParseIni
     ( INISectName (..)
     , INIKey
@@ -12,8 +14,9 @@ module ParseIni
     ) where
 
 import qualified Data.ByteString as B
+import qualified Data.ByteString.Char8 as C
 import qualified Data.Map.Strict as M
-
+import Data.Char (toLower)
 
 -- **** TYPES ****
 -- These are the types you should use for the results of your parse.
@@ -56,24 +59,25 @@ type INIFile = M.Map INISectName INISection
 -- appropriate @INISectName@. This function accounts for the case
 -- insensitivity of the section name.
 toSectName :: String -> Maybe String -> INISectName
-toSectName = undefined
+toSectName sec (Just sub) = ISubsect (C.pack sec) (C.pack sub)
+toSectName sec Nothing    = ISect (C.pack sec)
 
 -- |Given a key name, return an appropriate @INIKey@. This function
 -- accounts for the case insensitivity of the key name.
 toKey :: String -> INIKey
-toKey = undefined
+toKey = C.pack . map toLower
 
 -- |Look up a section in an @INIFile@.
 lookupSection :: INISectName -> INIFile -> Maybe INISection
-lookupSection = undefined
+lookupSection = M.lookup
 
 -- |Look up a value in an @INISection@.
 lookupSValue :: INIKey -> INISection -> Maybe [INIVal]
-lookupSValue = undefined
+lookupSValue = M.lookup
 
 -- |Look up a value in an @INIFile@.
 lookupValue :: INIKey -> INISectName -> INIFile -> Maybe [INIVal]
-lookupValue = undefined
+lookupValue key sec file = lookupSection sec file >>= lookupSValue key
 
 
 -- **** PARSER ****
