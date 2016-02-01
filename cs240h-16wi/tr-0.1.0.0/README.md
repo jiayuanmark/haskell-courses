@@ -1,4 +1,4 @@
-% Stanford CS240h Lab 1
+# Stanford CS240h Lab 1
 
 Please use this skeleton code as your starting point:
 [lab1.tar.gz](http://www.scs.stanford.edu/16wi-cs240h/labs/lab1.tar.gz).
@@ -208,4 +208,3 @@ mailing [list](mailto:cs240h-staff@scs.stanford.edu).
 We suggest you listen to
 [Cut Copy - Forest Through The Trees Mixtape](https://soundcloud.com/cuttersrecords/forest-through-the-trees-mixtape)
 if needing music while programming.
-
