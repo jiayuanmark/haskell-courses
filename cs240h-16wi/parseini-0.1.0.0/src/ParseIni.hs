@@ -13,10 +13,13 @@ module ParseIni
     , lookupValue
     ) where
 
+import Control.Applicative
+import Data.Attoparsec.ByteString as P
+import Data.Attoparsec.ByteString.Char8 as AC
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Char8 as C
 import qualified Data.Map.Strict as M
-import Data.Char (toLower)
+import Data.Char (toLower, isAlphaNum)
 
 -- **** TYPES ****
 -- These are the types you should use for the results of your parse.
@@ -59,13 +62,13 @@ type INIFile = M.Map INISectName INISection
 -- appropriate @INISectName@. This function accounts for the case
 -- insensitivity of the section name.
 toSectName :: String -> Maybe String -> INISectName
-toSectName sec (Just sub) = ISubsect (C.pack sec) (C.pack sub)
-toSectName sec Nothing    = ISect (C.pack sec)
+toSectName sec (Just sub) = ISubsect (C.pack (lowercase sec)) (C.pack sub)
+toSectName sec Nothing    = ISect . C.pack . lowercase $ sec
 
 -- |Given a key name, return an appropriate @INIKey@. This function
 -- accounts for the case insensitivity of the key name.
 toKey :: String -> INIKey
-toKey = C.pack . map toLower
+toKey = C.pack . lowercase
 
 -- |Look up a section in an @INIFile@.
 lookupSection :: INISectName -> INIFile -> Maybe INISection
@@ -79,6 +82,8 @@ lookupSValue = M.lookup
 lookupValue :: INIKey -> INISectName -> INIFile -> Maybe [INIVal]
 lookupValue key sec file = lookupSection sec file >>= lookupSValue key
 
+lowercase :: String -> String
+lowercase = map toLower
 
 -- **** PARSER ****
 
@@ -98,3 +103,18 @@ parseIniFile = const $ Right M.empty
 --
 -- parseIniFile should return @Left errmsg@ on error,
 -- or @Right parsedResult@ on success.
+
+spaces :: Parser String
+spaces = many' space
+
+sectionName :: Parser String
+sectionName = many1 $ AC.satisfy isAlphaNum <|>
+                      AC.satisfy (== '-')   <|>
+                      AC.satisfy (== '.')
+
+subsectionName :: Parser (Maybe String)
+subsectionName = undefined
+
+iniSecName :: Parser INISectName
+iniSecName = toSectName <$> (char '[' *> sectionName)
+                        <*> (spaces *> subsectionName <* char ']')
