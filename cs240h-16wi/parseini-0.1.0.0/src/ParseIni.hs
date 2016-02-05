@@ -19,7 +19,7 @@ import Data.Attoparsec.ByteString.Char8 as AC
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Char8 as C
 import qualified Data.Map.Strict as M
-import Data.Char (toLower, isAlphaNum)
+import Data.Char (toLower, isAlpha, isAlphaNum)
 
 -- **** TYPES ****
 -- These are the types you should use for the results of your parse.
@@ -113,7 +113,7 @@ comments = (char '#' <|> char ';') *>
            endOfLine
 
 sectionName :: Parser String
-sectionName = many1 $ AC.satisfy (\c -> isAlphaNum c || AC.inClass "-." c)
+sectionName = many1 (AC.satisfy (\c -> isAlphaNum c || AC.inClass "-." c))
 
 subsectionName :: Parser String
 subsectionName = char '\"' *> many' (esp <|> tok) <* char '\"'
@@ -129,3 +129,11 @@ iniSecName = do
     Just '\"' -> do subsec <- subsectionName <* spaces <* char ']'
                     return $ toSectName sec (Just subsec)
     _         -> fail "cannot parse section!"
+
+iniKey :: Parser INIKey
+iniKey = spaces *> p <* spaces
+  where p = C.cons <$> AC.satisfy isAlpha
+                   <*> AC.takeWhile (\c -> isAlphaNum c || c == '-')
+
+iniVal :: Parser INIVal
+iniVal = undefined
