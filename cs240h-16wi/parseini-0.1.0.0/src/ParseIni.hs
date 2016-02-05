@@ -104,17 +104,28 @@ parseIniFile = const $ Right M.empty
 -- parseIniFile should return @Left errmsg@ on error,
 -- or @Right parsedResult@ on success.
 
-spaces :: Parser String
-spaces = many' space
+spaces :: Parser ()
+spaces = P.skipWhile isHorizontalSpace
+
+comments :: Parser ()
+comments = (char '#' <|> char ';') >>
+           P.skipWhile (not . isEndOfLine) >>
+           endOfLine
 
 sectionName :: Parser String
-sectionName = many1 $ AC.satisfy isAlphaNum <|>
-                      AC.satisfy (== '-')   <|>
-                      AC.satisfy (== '.')
+sectionName = many1 $ AC.satisfy (\c -> isAlphaNum c || AC.inClass "-." c)
 
-subsectionName :: Parser (Maybe String)
-subsectionName = undefined
+subsectionName :: Parser String
+subsectionName = char '\"' *> many' (esp <|> tok) <* char '\"'
+  where tok = AC.satisfy (AC.notInClass "\"\n")
+        esp = char '\\' >> AC.satisfy (AC.inClass "\\\"")
 
 iniSecName :: Parser INISectName
-iniSecName = toSectName <$> (char '[' *> sectionName)
-                        <*> (spaces *> subsectionName <* char ']')
+iniSecName = do
+  sec <- char '[' *> spaces *> sectionName <* spaces
+  c   <- peekChar
+  case c of
+    Just ']'  -> char ']' *> return (toSectName sec Nothing)
+    Just '\"' -> do subsec <- subsectionName <* spaces <* char ']'
+                    return $ toSectName sec (Just subsec)
+    _         -> fail "cannot parse section!"
