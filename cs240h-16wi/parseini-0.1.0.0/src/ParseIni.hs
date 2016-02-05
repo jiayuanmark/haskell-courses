@@ -108,8 +108,8 @@ spaces :: Parser ()
 spaces = P.skipWhile isHorizontalSpace
 
 comments :: Parser ()
-comments = (char '#' <|> char ';') >>
-           P.skipWhile (not . isEndOfLine) >>
+comments = (char '#' <|> char ';') *>
+           P.skipWhile (not . isEndOfLine) *>
            endOfLine
 
 sectionName :: Parser String
@@ -118,7 +118,7 @@ sectionName = many1 $ AC.satisfy (\c -> isAlphaNum c || AC.inClass "-." c)
 subsectionName :: Parser String
 subsectionName = char '\"' *> many' (esp <|> tok) <* char '\"'
   where tok = AC.satisfy (AC.notInClass "\"\n")
-        esp = char '\\' >> AC.satisfy (AC.inClass "\\\"")
+        esp = char '\\' *> AC.satisfy (AC.inClass "\\\"")
 
 iniSecName :: Parser INISectName
 iniSecName = do
