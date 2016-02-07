@@ -1,5 +1,3 @@
-{-# LANGUAGE OverloadedStrings #-}
-
 module ParseIni
     ( INISectName (..)
     , INIKey
@@ -19,7 +17,7 @@ import Data.Attoparsec.ByteString.Char8 as AC
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Char8 as C
 import qualified Data.Map.Strict as M
-import Data.Char (toLower, isAlpha, isAlphaNum)
+import Data.Char (toLower, toUpper, isAlpha, isAlphaNum)
 
 -- **** TYPES ****
 -- These are the types you should use for the results of your parse.
@@ -131,9 +129,43 @@ iniSecName = do
     _         -> fail "cannot parse section!"
 
 iniKey :: Parser INIKey
-iniKey = spaces *> p <* spaces
+iniKey = (toKey . C.unpack) <$> p
   where p = C.cons <$> AC.satisfy isAlpha
                    <*> AC.takeWhile (\c -> isAlphaNum c || c == '-')
 
 iniVal :: Parser INIVal
 iniVal = undefined
+
+bool :: Parser Bool
+bool = caseString "true"  *> return True <|>
+       caseString "false" *> return False <|>
+       caseString "off"   *> return False <|>
+       caseString "yes"   *> return True <|>
+       caseString "on"    *> return True <|>
+       caseString "no"    *> return False
+  where caseChar c = char (toLower c) <|> char (toUpper c)
+        caseString = mapM caseChar
+
+int :: Parser Integer
+int = do
+  s <- sgn
+  n <- read . C.unpack <$> AC.takeWhile1 isDigit
+  u <- unit
+  return $ if s then n * u else (-n) * u
+  where
+    sgn = do
+      s <- peekChar'
+      case s of
+        '+' -> char '+' *> return True
+        '-' -> char '-' *> return False
+        _   -> return True
+    unit = do
+      u <- peekChar
+      case u of
+        Nothing -> return 1
+        Just v
+          | isSpace v         -> return 1
+          | M.member v metric -> char v *> return (M.findWithDefault 1 v metric)
+          | otherwise         -> fail "cannot parse integer value!"
+      where base   = (2 :: Integer) ^ (10 :: Integer)
+            metric = M.fromList . zip "kMGTPE" $ iterate (base *) base
