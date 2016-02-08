@@ -134,7 +134,10 @@ iniKey = (toKey . C.unpack) <$> p
                    <*> AC.takeWhile (\c -> isAlphaNum c || c == '-')
 
 iniVal :: Parser INIVal
-iniVal = undefined
+iniVal = IBool <$> bool
+         <|> IInt <$> int
+         <|> IString <$> bstring
+         <?> "cannot parse INIVal!"
 
 bool :: Parser Bool
 bool = caseString "true"  *> return True <|>
@@ -163,9 +166,38 @@ int = do
       u <- peekChar
       case u of
         Nothing -> return 1
-        Just v
-          | isSpace v         -> return 1
-          | M.member v metric -> char v *> return (M.findWithDefault 1 v metric)
-          | otherwise         -> fail "cannot parse integer value!"
+        Just u'
+          | isSpace u'         -> return 1
+          | M.member u' metric -> do
+            let cont = char u' *> return (M.findWithDefault 1 u' metric)
+            v <- peekChar
+            case v of
+              Nothing -> cont
+              Just v'
+                | isSpace v' -> cont
+                | otherwise  -> fail "cannot parse integer value!"
+          | otherwise        -> fail "cannot parse integer value!"
       where base   = (2 :: Integer) ^ (10 :: Integer)
             metric = M.fromList . zip "kMGTPE" $ iterate (base *) base
+
+bstring :: Parser B.ByteString
+bstring = do
+  content <- spaces *> many' (nquote <|> escape <|> quoted)
+  return $ B.concat content
+  where
+    nquote = AC.takeWhile (AC.notInClass ";#\"\\\n")
+
+    quoted = undefined
+      {-do
+      char '\"' *> many' ( <|> ) <* char '\"'
+      where-}
+
+    escape = char '\\' *> do
+      c <- peekChar
+      case c of
+        Just '\n' -> return B.empty
+        Just c'   -> case (M.lookup c' esp_char) of
+          Just c'' -> return $ C.singleton c''
+          Nothing  -> fail "cannot recognize escape sequence!"
+        Nothing   -> fail "cannot recognize escape sequence!"
+        where esp_char = M.fromList $ zip "\\\"ntb" "\\\"\n\t\b"
