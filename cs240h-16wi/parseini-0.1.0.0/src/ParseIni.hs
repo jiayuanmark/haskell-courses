@@ -152,40 +152,45 @@ int = do
   return (v * u)
   where
     unit = do
-      u <- peekChar
-      case u of
+      x <- peekChar
+      case x of
         Nothing -> return 1
-        Just u'
-          | isSpace u'         -> return 1
-          | M.member u' metric -> do
-            let cont = char u' *> return (M.findWithDefault 1 u' metric)
-            v <- peekChar
-            case v of
-              Nothing -> cont
-              Just v'
-                | isSpace v' -> cont
-                | otherwise  -> fail "cannot parse integer value!"
-          | otherwise        -> fail "cannot parse integer value!"
+        Just x'
+          | isSpace x'         -> return 1
+          | M.member x' metric ->
+            let cont = M.findWithDefault 1 x' metric
+            in char x' *> do
+              y <- peekChar
+              case y of
+                Nothing -> return cont
+                Just y' | isSpace y' -> return cont
+                        | otherwise  -> fail "cannot parse integer value!"
+          | otherwise -> fail "cannot parse integer value!"
       where base   = (2 :: Integer) ^ (10 :: Integer)
             metric = M.fromList . zip "kMGTPE" $ iterate (base *) base
 
 bstring :: Parser B.ByteString
 bstring = do
-  content <- spaces *> many' (nquote <|> escape <|> quoted)
-  return $ B.concat content
+  content <- many (nquote <|> escape <|> quoted)
+  return . fst . C.spanEnd isSpace . C.concat $ content
   where
-    nquote = AC.takeWhile (AC.notInClass ";#\"\\\n")
+    nquote = AC.takeWhile1 (AC.notInClass ";#\"\\\n")
 
     quoted = do
-      char '\"'
-      many' ()
-      char '\"'
+      c <- char '\"' *> many' (ch <|> escape) <* char '\"'
+      return $ C.concatMap unesp (C.concat c)
       where
+        ch = AC.takeWhile1 (AC.notInClass "\\\"")
 
     escape = char '\\' *> do
       c <- peekChar
       case c of
-        Just '\n' -> return B.empty
+        Just '\n' -> char '\n' *> return C.empty
         _         -> do
           c' <- choice $ map char "\\\"ntb"
           return $ C.cons '\\' (C.singleton c')
+
+    unesp '\n' = "\\n"
+    unesp '\t' = "\\t"
+    unesp '\b' = "\\b"
+    unesp x    = C.singleton x
