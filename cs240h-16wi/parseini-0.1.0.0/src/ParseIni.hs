@@ -19,7 +19,7 @@ import Data.Attoparsec.ByteString.Char8 as AC
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Char8 as C
 import qualified Data.Map.Strict as M
-import Data.Char (toLower, isAlpha, isAlphaNum)
+import Data.Char (isAlpha, isAlphaNum, ord, toLower)
 
 -- **** TYPES ****
 -- These are the types you should use for the results of your parse.
@@ -164,8 +164,8 @@ int = do
               case y of
                 Nothing -> return cont
                 Just y' | isSpace y' -> return cont
-                        | otherwise  -> fail "cannot parse integer value!"
-          | otherwise -> fail "cannot parse integer value!"
+                        | otherwise  -> fail "cannot parse int unit!"
+          | otherwise -> fail "unrecognized int unit!"
       where base   = (2 :: Integer) ^ (10 :: Integer)
             metric = M.fromList . zip "kMGTPE" $ iterate (base *) base
 
@@ -174,14 +174,11 @@ bstring = do
   content <- many (nquote <|> escape <|> quoted)
   return . fst . C.spanEnd isSpace . C.concat $ content
   where
-    nquote = AC.takeWhile1 (AC.notInClass ";#\"\\\n")
-
-    quoted = do
-      c <- char '\"' *> many' (ch <|> escape) <* char '\"'
-      return $ C.concatMap unesp (C.concat c)
-      where
-        ch = AC.takeWhile1 (AC.notInClass "\\\"")
-
+    -- Fast byte version of @notInClass@
+    notAny s w = all (w /=) $ map (fromIntegral . ord) s
+    -- Content without quotes or escaping
+    nquote = P.takeWhile1 (notAny ";#\"\\\n")
+    -- Escaped sequence
     escape = char '\\' *> do
       c <- peekChar
       case c of
@@ -189,7 +186,12 @@ bstring = do
         _         -> do
           c' <- choice $ map char "\\\"ntb"
           return $ C.cons '\\' (C.singleton c')
-
+    -- Quoted content
+    quoted = do
+      c <- char '\"' *> many' (ch <|> escape) <* char '\"'
+      return $ C.concatMap unesp (C.concat c)
+      where ch = P.takeWhile1 (notAny "\\\"")
+    -- Unescape sequence
     unesp '\n' = "\\n"
     unesp '\t' = "\\t"
     unesp '\b' = "\\b"
