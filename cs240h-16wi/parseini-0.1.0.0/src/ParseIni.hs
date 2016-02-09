@@ -1,3 +1,5 @@
+{-# LANGUAGE OverloadedStrings #-}
+
 module ParseIni
     ( INISectName (..)
     , INIKey
@@ -17,7 +19,7 @@ import Data.Attoparsec.ByteString.Char8 as AC
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Char8 as C
 import qualified Data.Map.Strict as M
-import Data.Char (toLower, toUpper, isAlpha, isAlphaNum)
+import Data.Char (toLower, isAlpha, isAlphaNum)
 
 -- **** TYPES ****
 -- These are the types you should use for the results of your parse.
@@ -140,28 +142,15 @@ iniVal = IBool <$> bool
          <?> "cannot parse INIVal!"
 
 bool :: Parser Bool
-bool = caseString "true"  *> return True <|>
-       caseString "false" *> return False <|>
-       caseString "off"   *> return False <|>
-       caseString "yes"   *> return True <|>
-       caseString "on"    *> return True <|>
-       caseString "no"    *> return False
-  where caseChar c = char (toLower c) <|> char (toUpper c)
-        caseString = mapM caseChar
+bool = (stringCI "true" <|> stringCI "yes" <|> stringCI "on") *> return True <|>
+       (stringCI "false" <|> stringCI "no" <|> stringCI "off") *> return False
 
 int :: Parser Integer
 int = do
-  s <- sgn
-  n <- read . C.unpack <$> AC.takeWhile1 isDigit
+  v <- signed decimal
   u <- unit
-  return $ if s then n * u else (-n) * u
+  return (v * u)
   where
-    sgn = do
-      s <- peekChar'
-      case s of
-        '+' -> char '+' *> return True
-        '-' -> char '-' *> return False
-        _   -> return True
     unit = do
       u <- peekChar
       case u of
@@ -187,17 +176,16 @@ bstring = do
   where
     nquote = AC.takeWhile (AC.notInClass ";#\"\\\n")
 
-    quoted = undefined
-      {-do
-      char '\"' *> many' ( <|> ) <* char '\"'
-      where-}
+    quoted = do
+      char '\"'
+      many' ()
+      char '\"'
+      where
 
     escape = char '\\' *> do
       c <- peekChar
       case c of
         Just '\n' -> return B.empty
-        Just c'   -> case (M.lookup c' esp_char) of
-          Just c'' -> return $ C.singleton c''
-          Nothing  -> fail "cannot recognize escape sequence!"
-        Nothing   -> fail "cannot recognize escape sequence!"
-        where esp_char = M.fromList $ zip "\\\"ntb" "\\\"\n\t\b"
+        _         -> do
+          c' <- choice $ map char "\\\"ntb"
+          return $ C.cons '\\' (C.singleton c')
