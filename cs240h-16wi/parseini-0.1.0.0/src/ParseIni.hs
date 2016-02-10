@@ -20,6 +20,7 @@ import qualified Data.ByteString as B
 import qualified Data.ByteString.Char8 as C
 import qualified Data.Map.Strict as M
 import Data.Char (isAlpha, isAlphaNum, ord, toLower)
+import Data.Maybe (fromJust)
 
 -- **** TYPES ****
 -- These are the types you should use for the results of your parse.
@@ -148,26 +149,18 @@ bool = (stringCI "true" <|> stringCI "yes" <|> stringCI "on") *> return True <|>
 int :: Parser Integer
 int = do
   v <- signed decimal
-  u <- unit
+  u <- pUnit
   return (v * u)
   where
-    unit = do
-      x <- peekChar
-      case x of
-        Nothing -> return 1
-        Just x'
-          | isSpace x'         -> return 1
-          | M.member x' metric ->
-            let cont = M.findWithDefault 1 x' metric
-            in char x' *> do
-              y <- peekChar
-              case y of
-                Nothing -> return cont
-                Just y' | isSpace y' -> return cont
-                        | otherwise  -> fail "cannot parse int unit!"
-          | otherwise -> fail "unrecognized int unit!"
-      where base   = (2 :: Integer) ^ (10 :: Integer)
-            metric = M.fromList . zip "kMGTPE" $ iterate (base *) base
+    eofOrWs = AC.endOfInput <|> space *> return ()
+    pUnit = eofOrWs *> return 1 <|> pUnit' <* eofOrWs
+      where
+        base   = (2 :: Integer) ^ (10 :: Integer)
+        unit   = "kMGTPE"
+        units  = M.fromList . zip unit $ iterate (base *) base
+        pUnit' = do
+          c <- AC.satisfy (AC.inClass unit)
+          return $ fromJust (M.lookup c units)
 
 bstring :: Parser B.ByteString
 bstring = do
