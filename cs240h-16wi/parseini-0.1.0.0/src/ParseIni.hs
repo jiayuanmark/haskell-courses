@@ -137,10 +137,11 @@ iniKey = (toKey . C.unpack) <$> p
                    <*> AC.takeWhile (\c -> isAlphaNum c || c == '-')
 
 iniVal :: Parser INIVal
-iniVal = IBool <$> bool
-         <|> IInt <$> int
-         <|> IString <$> bstring
-         <?> "cannot parse INIVal!"
+iniVal = wsOrLn *> char '=' *> wsOrLn *> value <* wsOrLn
+  where value  = IBool <$> bool <|> IInt <$> int <|> IString <$> bstring
+        wsOrLn = let ws = space *> return ()
+                     ln = string "\\\n" *> return()
+                 in many (ws <|> ln)
 
 bool :: Parser Bool
 bool = (stringCI "true" <|> stringCI "yes" <|> stringCI "on") *> return True <|>
