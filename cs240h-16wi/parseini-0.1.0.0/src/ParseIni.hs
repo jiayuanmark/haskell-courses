@@ -136,6 +136,9 @@ iniKey = (toKey . C.unpack) <$> p
   where p = C.cons <$> AC.satisfy isAlpha
                    <*> AC.takeWhile (\c -> isAlphaNum c || c == '-')
 
+eofOrWs :: Parser ()
+eofOrWs = AC.endOfInput <|> space *> return ()
+
 iniVal :: Parser INIVal
 iniVal = wsOrLn *> char '=' *> wsOrLn *> value <* wsOrLn
   where value  = IBool <$> bool <|> IInt <$> int <|> IString <$> bstring
@@ -144,8 +147,10 @@ iniVal = wsOrLn *> char '=' *> wsOrLn *> value <* wsOrLn
                  in many (ws <|> ln)
 
 bool :: Parser Bool
-bool = (stringCI "true" <|> stringCI "yes" <|> stringCI "on") *> return True <|>
-       (stringCI "false" <|> stringCI "no" <|> stringCI "off") *> return False
+bool = posTok *> eofOrWs *> return True <|>
+       negTok *> eofOrWs *> return False
+  where posTok = stringCI "true" <|> stringCI "yes" <|> stringCI "on"
+        negTok = stringCI "false" <|> stringCI "no" <|> stringCI "off"
 
 int :: Parser Integer
 int = do
@@ -153,7 +158,6 @@ int = do
   u <- pUnit
   return (v * u)
   where
-    eofOrWs = AC.endOfInput <|> space *> return ()
     pUnit = eofOrWs *> return 1 <|> pUnit' <* eofOrWs
       where
         base   = (2 :: Integer) ^ (10 :: Integer)
